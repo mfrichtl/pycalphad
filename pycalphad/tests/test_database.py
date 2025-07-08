@@ -1,6 +1,7 @@
 """
 The test_database module contains tests for the Database object.
 """
+
 from io import StringIO
 import pytest
 from importlib.resources import files
@@ -28,13 +29,14 @@ from pycalphad.tests.fixtures import select_database, load_database
 # the Database is correct; that's okay, other tests check correctness.
 # We're only checking consistency and exercising error checking here.
 REFERENCE_DBF = Database(str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")))
-REFERENCE_MOD = Model(REFERENCE_DBF, ['CR', 'NI'], 'L12_FCC')
+REFERENCE_MOD = Model(REFERENCE_DBF, ["CR", "NI"], "L12_FCC")
 
-INVALID_TDB_STR="""$ Note: database that invalidates the minimum compatibility subset for TDBs in different softwares
+INVALID_TDB_STR = """$ Note: database that invalidates the minimum compatibility subset for TDBs in different softwares
 $ functions names must be <=8 characters (Thermo-Calc)
 FUNCTION A_VERY_LONG_FUNCTION_NAME  298.15 -42; 6000 N !
 FUNCTION COMPAT 298.15 +9001; 6000 N !
 """
+
 
 @select_database("rose.tdb")
 def test_database_eq(load_database):
@@ -63,6 +65,7 @@ def test_database_ne(load_database):
     assert None != test_dbf
     assert 42 != test_dbf
 
+
 def test_database_pickle():
     "Database pickle roundtrip."
     test_dbf = Database(files(pycalphad.tests.databases).joinpath("alcrni.tdb"))
@@ -73,17 +76,30 @@ def test_database_pickle():
 @pytest.mark.filterwarnings("ignore:unclosed file*:ResourceWarning")
 def test_database_diffusion():
     "Diffusion database support."
-    DIFFUSION_TDB = open(str(files(pycalphad.tests.databases).joinpath("diffusion.tdb")), "r").read()
-    assert Database(DIFFUSION_TDB).phases == \
-           Database.from_string(Database(DIFFUSION_TDB).to_string(fmt='tdb'), fmt='tdb').phases
+    DIFFUSION_TDB = open(
+        str(files(pycalphad.tests.databases).joinpath("diffusion.tdb")), "r"
+    ).read()
+    assert (
+        Database(DIFFUSION_TDB).phases
+        == Database.from_string(
+            Database(DIFFUSION_TDB).to_string(fmt="tdb"), fmt="tdb"
+        ).phases
+    )
     # Won't work until sympy/sympy#10560 is fixed to prevent precision loss
-    #assert Database(DIFFUSION_TDB) == Database.from_string(Database(DIFFUSION_TDB).to_string(fmt='tdb'), fmt='tdb')
+    # assert Database(DIFFUSION_TDB) == Database.from_string(Database(DIFFUSION_TDB).to_string(fmt='tdb'), fmt='tdb')
+
 
 @pytest.mark.filterwarnings("ignore:unclosed file*:ResourceWarning")
 def test_load_from_string():
     "Test database loading from a string."
-    test_model = Model(Database.from_string(open(files(pycalphad.tests.databases).joinpath("alcrni.tdb"), "r").read()
-                                            , fmt='tdb'), ['CR', 'NI'], 'L12_FCC')
+    test_model = Model(
+        Database.from_string(
+            open(files(pycalphad.tests.databases).joinpath("alcrni.tdb"), "r").read(),
+            fmt="tdb",
+        ),
+        ["CR", "NI"],
+        "L12_FCC",
+    )
     assert test_model == REFERENCE_MOD
 
 
@@ -91,14 +107,21 @@ def test_load_from_string():
 def test_export_import(load_database):
     "Equivalence of re-imported database to original."
     test_dbf = Database(files(pycalphad.tests.databases).joinpath("alnipt.tdb"))
-    assert Database.from_string(test_dbf.to_string(fmt='tdb', if_incompatible='ignore'), fmt='tdb') == test_dbf
+    assert (
+        Database.from_string(
+            test_dbf.to_string(fmt="tdb", if_incompatible="ignore"), fmt="tdb"
+        )
+        == test_dbf
+    )
     test_dbf = load_database()
-    assert Database.from_string(test_dbf.to_string(fmt='tdb'), fmt='tdb') == test_dbf
+    assert Database.from_string(test_dbf.to_string(fmt="tdb"), fmt="tdb") == test_dbf
+
 
 def test_bad_kwarg_raises():
     "An invalid keyword argument passed to database export function will raise an exception."
     with pytest.raises(ValueError):
-        Database().to_string(fmt='tdb', if_incompatible='invalid_keyword_argument')
+        Database().to_string(fmt="tdb", if_incompatible="invalid_keyword_argument")
+
 
 def test_roundtrip_nested_powers():
     "Round-trip with nested powers expression."
@@ -111,55 +134,83 @@ def test_roundtrip_nested_powers():
     PARAMETER G(FCC_A1,A;0) 1 ((3.49 * (1373 * T**(-1)))**(1.778 * (1473 * T**(-1))))**(0.926); 10000 N !
     """
     test_dbf = Database(TDB)
-    roundtrip_dbf = Database.from_string(test_dbf.to_string(fmt='tdb', if_incompatible='ignore'), fmt='tdb')
+    roundtrip_dbf = Database.from_string(
+        test_dbf.to_string(fmt="tdb", if_incompatible="ignore"), fmt="tdb"
+    )
     assert roundtrip_dbf == test_dbf
-    with pytest.warns(UserWarning, match='Ignoring that non-integer exponents cannot be represented in TDB compatibility mode'):
-        roundtrip2_dbf = Database.from_string(test_dbf.to_string(fmt='tdb', if_incompatible='warn'), fmt='tdb')
+    with pytest.warns(
+        UserWarning,
+        match="Ignoring that non-integer exponents cannot be represented in TDB compatibility mode",
+    ):
+        roundtrip2_dbf = Database.from_string(
+            test_dbf.to_string(fmt="tdb", if_incompatible="warn"), fmt="tdb"
+        )
     assert roundtrip2_dbf == test_dbf
     with pytest.raises(DatabaseExportError):
-        test_dbf.to_string(fmt='tdb', if_incompatible='raise')
+        test_dbf.to_string(fmt="tdb", if_incompatible="raise")
     with pytest.raises(DatabaseExportError):
         # this type of incompatibility cannot be automatically fixed
-        test_dbf.to_string(fmt='tdb', if_incompatible='fix')
+        test_dbf.to_string(fmt="tdb", if_incompatible="fix")
+
 
 def test_incompatible_db_warns_by_default():
     "Symbol names too long for Thermo-Calc warn and write the database as given by default."
-    test_dbf = Database.from_string(INVALID_TDB_STR, fmt='tdb')
-    with pytest.warns(UserWarning, match='Ignoring that the following function names are beyond the 8 character TDB limit'):
-        invalid_dbf = test_dbf.to_string(fmt='tdb')
-    assert test_dbf == Database.from_string(invalid_dbf, fmt='tdb')
+    test_dbf = Database.from_string(INVALID_TDB_STR, fmt="tdb")
+    with pytest.warns(
+        UserWarning,
+        match="Ignoring that the following function names are beyond the 8 character TDB limit",
+    ):
+        invalid_dbf = test_dbf.to_string(fmt="tdb")
+    assert test_dbf == Database.from_string(invalid_dbf, fmt="tdb")
+
 
 def test_incompatible_db_raises_error_with_kwarg_raise():
     "Symbol names too long for Thermo-Calc raise error on write with kwarg raise."
-    test_dbf = Database.from_string(INVALID_TDB_STR, fmt='tdb')
+    test_dbf = Database.from_string(INVALID_TDB_STR, fmt="tdb")
     with pytest.raises(DatabaseExportError):
-        test_dbf.to_string(fmt='tdb', if_incompatible='raise')
+        test_dbf.to_string(fmt="tdb", if_incompatible="raise")
+
 
 def test_incompatible_db_warns_with_kwarg_warn():
     "Symbol names too long for Thermo-Calc warn and write the database as given."
-    test_dbf = Database.from_string(INVALID_TDB_STR, fmt='tdb')
-    with pytest.warns(UserWarning, match='Ignoring that the following function names are beyond the 8 character TDB limit'):
-        invalid_dbf = test_dbf.to_string(fmt='tdb', if_incompatible='warn')
-    assert test_dbf == Database.from_string(invalid_dbf, fmt='tdb')
+    test_dbf = Database.from_string(INVALID_TDB_STR, fmt="tdb")
+    with pytest.warns(
+        UserWarning,
+        match="Ignoring that the following function names are beyond the 8 character TDB limit",
+    ):
+        invalid_dbf = test_dbf.to_string(fmt="tdb", if_incompatible="warn")
+    assert test_dbf == Database.from_string(invalid_dbf, fmt="tdb")
+
 
 @pytest.mark.filterwarnings("error")
 def test_incompatible_db_ignores_with_kwarg_ignore():
     "Symbol names too long for Thermo-Calc are ignored the database written as given."
-    test_dbf = Database.from_string(INVALID_TDB_STR, fmt='tdb')
-    invalid_dbf = test_dbf.to_string(fmt='tdb', if_incompatible='ignore')
-    assert test_dbf == Database.from_string(invalid_dbf, fmt='tdb')
+    test_dbf = Database.from_string(INVALID_TDB_STR, fmt="tdb")
+    invalid_dbf = test_dbf.to_string(fmt="tdb", if_incompatible="ignore")
+    assert test_dbf == Database.from_string(invalid_dbf, fmt="tdb")
+
 
 def test_incompatible_db_mangles_names_with_kwarg_fix():
     "Symbol names too long for Thermo-Calc are mangled and replaced in symbol names, symbol expressions, and parameter expressions."
-    test_dbf = Database.from_string(INVALID_TDB_STR, fmt='tdb')
+    test_dbf = Database.from_string(INVALID_TDB_STR, fmt="tdb")
     test_dbf_copy = deepcopy(test_dbf)
-    mangled_dbf = Database.from_string(test_dbf.to_string(fmt='tdb', if_incompatible='fix'), fmt='tdb')
+    mangled_dbf = Database.from_string(
+        test_dbf.to_string(fmt="tdb", if_incompatible="fix"), fmt="tdb"
+    )
     # check that the long function name was hashed correctly
-    a_very_long_function_name_hash_symbol = 'F' + str(hashlib.md5('A_VERY_LONG_FUNCTION_NAME'.encode('UTF-8')).hexdigest()).upper()[:7]
+    a_very_long_function_name_hash_symbol = (
+        "F"
+        + str(
+            hashlib.md5("A_VERY_LONG_FUNCTION_NAME".encode("UTF-8")).hexdigest()
+        ).upper()[:7]
+    )
     assert a_very_long_function_name_hash_symbol in mangled_dbf.symbols.keys()
-    assert 'COMPAT' in mangled_dbf.symbols.keys() # test that compatible keys are not removed
-    assert test_dbf_copy == test_dbf # make sure test_dbf has not mutated
-    assert test_dbf != mangled_dbf # also make sure test_dbf has not mutated
+    assert (
+        "COMPAT" in mangled_dbf.symbols.keys()
+    )  # test that compatible keys are not removed
+    assert test_dbf_copy == test_dbf  # make sure test_dbf has not mutated
+    assert test_dbf != mangled_dbf  # also make sure test_dbf has not mutated
+
 
 def test_symbol_names_are_propagated_through_symbols_and_parameters():
     """A map of old symbol names to new symbol names should propagate through symbol and parameter SymPy expressions"""
@@ -169,13 +220,22 @@ def test_symbol_names_are_propagated_through_symbols_and_parameters():
     FUNCTION FN2 298.15 FN1#; 6000 N !
     PARAMETER G(PH,A;0) 298.15 FN1# + FN2#; 6000 N !
     """
-    test_dbf = Database.from_string(tdb_propagate_str, fmt='tdb')
-    rename_map = {'FN1': 'RENAMED_FN1', 'FN2': 'RENAMED_FN2'}
+    test_dbf = Database.from_string(tdb_propagate_str, fmt="tdb")
+    rename_map = {"FN1": "RENAMED_FN1", "FN2": "RENAMED_FN2"}
     _apply_new_symbol_names(test_dbf, rename_map)
-    assert 'RENAMED_FN1' in test_dbf.symbols
-    assert 'FN1' not in test_dbf.symbols # check that the old key was removed
-    assert test_dbf.symbols['RENAMED_FN2'] == Piecewise((Symbol('RENAMED_FN1'), And(v.T < 6000.0, v.T >= 298.15)), (0, True))
-    assert test_dbf._parameters.all()[0]['parameter'] == Piecewise((Symbol('RENAMED_FN1')+Symbol('RENAMED_FN2'), And(v.T < 6000.0, v.T >= 298.15)), (0, True))
+    assert "RENAMED_FN1" in test_dbf.symbols
+    assert "FN1" not in test_dbf.symbols  # check that the old key was removed
+    assert test_dbf.symbols["RENAMED_FN2"] == Piecewise(
+        (Symbol("RENAMED_FN1"), And(v.T < 6000.0, v.T >= 298.15)), (0, True)
+    )
+    assert test_dbf._parameters.all()[0]["parameter"] == Piecewise(
+        (
+            Symbol("RENAMED_FN1") + Symbol("RENAMED_FN2"),
+            And(v.T < 6000.0, v.T >= 298.15),
+        ),
+        (0, True),
+    )
+
 
 def test_tdb_content_after_line_end_is_neglected():
     """Any characters after the line ending '!' are neglected as in commercial software."""
@@ -185,17 +245,20 @@ def test_tdb_content_after_line_end_is_neglected():
     PARAMETER G(PH,B;0) 298.15 +9001; 6000 N ! PARAMETER G(PH,C;0) 298.15 +2; 600 N !
     PARAMETER G(PH,D;0) 298.15 -42; 6000 N !
     """
-    test_dbf = Database.from_string(tdb_line_ending_str, fmt='tdb')
+    test_dbf = Database.from_string(tdb_line_ending_str, fmt="tdb")
     assert len(test_dbf._parameters) == 3
+
 
 @pytest.fixture
 def _testwritetdb():
-    fname = 'testwritedb.tdb'
+    fname = "testwritedb.tdb"
     yield fname  # run the test
     os.remove(fname)
 
 
-@pytest.mark.filterwarnings("ignore:Ignoring that the following function names are beyond the 8 character TDB limit*:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:Ignoring that the following function names are beyond the 8 character TDB limit*:UserWarning"
+)
 @select_database("alnipt.tdb")
 def test_to_file_defaults_to_raise_if_exists(load_database, _testwritetdb):
     "Attempting to use Database.to_file should raise by default if it exists"
@@ -206,7 +269,9 @@ def test_to_file_defaults_to_raise_if_exists(load_database, _testwritetdb):
         test_dbf.to_file(fname)  # test if_exists behavior
 
 
-@pytest.mark.filterwarnings("ignore:Ignoring that the following function names are beyond the 8 character TDB limit*:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:Ignoring that the following function names are beyond the 8 character TDB limit*:UserWarning"
+)
 @select_database("alnipt.tdb")
 def test_to_file_raises_with_bad_if_exists_argument(load_database, _testwritetdb):
     "Database.to_file should raise if a bad behavior string is passed to if_exists"
@@ -214,20 +279,25 @@ def test_to_file_raises_with_bad_if_exists_argument(load_database, _testwritetdb
     test_dbf = load_database()
     test_dbf.to_file(fname)  # establish the initial file
     with pytest.raises(FileExistsError):
-        test_dbf.to_file(fname, if_exists='TEST_BAD_ARGUMENT')  # test if_exists behavior
+        test_dbf.to_file(
+            fname, if_exists="TEST_BAD_ARGUMENT"
+        )  # test if_exists behavior
 
 
-@pytest.mark.filterwarnings("ignore:Ignoring that the following function names are beyond the 8 character TDB limit*:UserWarning")
+@pytest.mark.filterwarnings(
+    "ignore:Ignoring that the following function names are beyond the 8 character TDB limit*:UserWarning"
+)
 @select_database("alnipt.tdb")
 def test_to_file_overwrites_with_if_exists_argument(load_database, _testwritetdb):
     "Database.to_file should overwrite if 'overwrite' is passed to if_exists"
     import time
+
     fname = _testwritetdb
     test_dbf = load_database()
     test_dbf.to_file(fname)  # establish the initial file
     inital_modification_time = os.path.getmtime(fname)
     time.sleep(1)  # this test can fail intermittently without waiting.
-    test_dbf.to_file(fname, if_exists='overwrite')  # test if_exists behavior
+    test_dbf.to_file(fname, if_exists="overwrite")  # test if_exists behavior
     overwrite_modification_time = os.path.getmtime(fname)
     assert overwrite_modification_time > inital_modification_time
 
@@ -240,27 +310,47 @@ def test_unspecified_format_from_string():
     with pytest.raises(ValueError):
         Database.from_string(db_str)
 
+
 def test_unknown_format_from_string():
     "from_string: Unknown import string format raises NotImplementedError."
     with pytest.raises(NotImplementedError):
-        Database.from_string(str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")), fmt='_fail_')
+        Database.from_string(
+            str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")), fmt="_fail_"
+        )
+
 
 def test_unknown_format_to_string():
     "to_string: Unknown export file format raises NotImplementedError."
     with pytest.raises(NotImplementedError):
-        REFERENCE_DBF.to_string(fmt='_fail_')
+        REFERENCE_DBF.to_string(fmt="_fail_")
+
 
 @pytest.mark.filterwarnings("ignore:unclosed file*:ResourceWarning")
 def test_load_from_stringio():
     "Test database loading from a file-like object."
-    test_tdb = Database(StringIO(open(str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")), "r").read()))
+    test_tdb = Database(
+        StringIO(
+            open(
+                str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")), "r"
+            ).read()
+        )
+    )
     assert test_tdb == REFERENCE_DBF
+
 
 @pytest.mark.filterwarnings("ignore:unclosed file*:ResourceWarning")
 def test_load_from_stringio_from_file():
     "Test database loading from a file-like object with the from_file method."
-    test_tdb = Database.from_file(StringIO(open(str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")), "r").read()), fmt='tdb')
+    test_tdb = Database.from_file(
+        StringIO(
+            open(
+                str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")), "r"
+            ).read()
+        ),
+        fmt="tdb",
+    )
     assert test_tdb == REFERENCE_DBF
+
 
 @pytest.mark.filterwarnings("ignore:unclosed file*:ResourceWarning")
 def test_unspecified_format_from_file():
@@ -271,67 +361,75 @@ def test_unspecified_format_from_file():
     with pytest.raises(ValueError):
         Database.from_file(db_str_io)
 
+
 def test_unspecified_format_to_file():
     "to_file: Unspecified format for file descriptor raises ValueError."
     with pytest.raises(ValueError):
         REFERENCE_DBF.to_file(StringIO())
 
+
 def test_unknown_format_from_file():
     "from_string: Unknown import file format raises NotImplementedError."
     with pytest.raises(NotImplementedError):
-        Database.from_string(str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")), fmt='_fail_')
+        Database.from_string(
+            str(files(pycalphad.tests.databases).joinpath("alcrni.tdb")), fmt="_fail_"
+        )
+
 
 def test_unknown_format_to_file():
     "to_file: Unknown export file format raises NotImplementedError."
     with pytest.raises(NotImplementedError):
-        REFERENCE_DBF.to_file(StringIO(), fmt='_fail_')
+        REFERENCE_DBF.to_file(StringIO(), fmt="_fail_")
+
 
 def test_expand_keyword():
     "expand_keyword expands command abbreviations."
     test_list = [
-        'PARAMETER',
-        'ELEMENT',
-        'CALCULATE_EQUILIBRIUM',
-        'CALCULATE_ALL_EQUILIBRIA',
-        'LIST_EQUILIBRIUM',
-        'LIST_INITIAL_EQUILIBRIUM',
-        'LOAD_INITIAL_EQUILIBRIUM',
-        'LIST_PHASE_DATA',
-        'SET_ALL_START_VALUES',
-        'SET_AXIS_VARIABLE',
-        'SET_START_CONSTITUENT',
-        'SET_START_VALUE',
-        'SET_AXIS_PLOT_STATUS',
-        'SET_AXIS_TEXT_STATUS',
-        'SET_AXIS_TYPE',
-        'SET_OPTIMIZING_CONDITION',
-        'SET_OPTIMIZING_VARIABLE',
-        'SET_OUTPUT_LEVEL'
+        "PARAMETER",
+        "ELEMENT",
+        "CALCULATE_EQUILIBRIUM",
+        "CALCULATE_ALL_EQUILIBRIA",
+        "LIST_EQUILIBRIUM",
+        "LIST_INITIAL_EQUILIBRIUM",
+        "LOAD_INITIAL_EQUILIBRIUM",
+        "LIST_PHASE_DATA",
+        "SET_ALL_START_VALUES",
+        "SET_AXIS_VARIABLE",
+        "SET_START_CONSTITUENT",
+        "SET_START_VALUE",
+        "SET_AXIS_PLOT_STATUS",
+        "SET_AXIS_TEXT_STATUS",
+        "SET_AXIS_TYPE",
+        "SET_OPTIMIZING_CONDITION",
+        "SET_OPTIMIZING_VARIABLE",
+        "SET_OUTPUT_LEVEL",
     ]
     test_input = [
-        ('Par', ['PARAMETER']),
-        ('Elem', ['ELEMENT']),
-        ('PAR', ['PARAMETER']),
-        ('C-E', ['CALCULATE_EQUILIBRIUM']),
-        ('C-A', ['CALCULATE_ALL_EQUILIBRIA']),
-        ('LI-I-E', ['LIST_INITIAL_EQUILIBRIUM']),
-        ('LO-I-E', ['LOAD_INITIAL_EQUILIBRIUM']),
-        ('L-P-D', ['LIST_PHASE_DATA']),
-        ('S-A-S', ['SET_ALL_START_VALUES']),
-        ('S-AL', ['SET_ALL_START_VALUES']),
-        ('S-A-V', ['SET_AXIS_VARIABLE']),
-        ('S-S-C', ['SET_START_CONSTITUENT']),
-        ('S-S-V', ['SET_START_VALUE']),
-        ('S-A-P', ['SET_AXIS_PLOT_STATUS']),
-        ('S-A-T-S', ['SET_AXIS_TEXT_STATUS']),
-        ('S-A-TE', ['SET_AXIS_TEXT_STATUS']),
-        ('S-A-TY', ['SET_AXIS_TYPE']),
-        ('S-O-C', ['SET_OPTIMIZING_CONDITION']),
-        ('S-O-V', ['SET_OPTIMIZING_VARIABLE']),
-        ('S-O-L', ['SET_OUTPUT_LEVEL']),
-        ('S-OU', ['SET_OUTPUT_LEVEL'])
+        ("Par", ["PARAMETER"]),
+        ("Elem", ["ELEMENT"]),
+        ("PAR", ["PARAMETER"]),
+        ("C-E", ["CALCULATE_EQUILIBRIUM"]),
+        ("C-A", ["CALCULATE_ALL_EQUILIBRIA"]),
+        ("LI-I-E", ["LIST_INITIAL_EQUILIBRIUM"]),
+        ("LO-I-E", ["LOAD_INITIAL_EQUILIBRIUM"]),
+        ("L-P-D", ["LIST_PHASE_DATA"]),
+        ("S-A-S", ["SET_ALL_START_VALUES"]),
+        ("S-AL", ["SET_ALL_START_VALUES"]),
+        ("S-A-V", ["SET_AXIS_VARIABLE"]),
+        ("S-S-C", ["SET_START_CONSTITUENT"]),
+        ("S-S-V", ["SET_START_VALUE"]),
+        ("S-A-P", ["SET_AXIS_PLOT_STATUS"]),
+        ("S-A-T-S", ["SET_AXIS_TEXT_STATUS"]),
+        ("S-A-TE", ["SET_AXIS_TEXT_STATUS"]),
+        ("S-A-TY", ["SET_AXIS_TYPE"]),
+        ("S-O-C", ["SET_OPTIMIZING_CONDITION"]),
+        ("S-O-V", ["SET_OPTIMIZING_VARIABLE"]),
+        ("S-O-L", ["SET_OUTPUT_LEVEL"]),
+        ("S-OU", ["SET_OUTPUT_LEVEL"]),
     ]
-    assert all([full == expand_keyword(test_list, abbrev) for abbrev, full in test_input])
+    assert all(
+        [full == expand_keyword(test_list, abbrev) for abbrev, full in test_input]
+    )
 
 
 def test_tdb_species_are_parsed_correctly():
@@ -358,15 +456,15 @@ SPECIES ALO                         AL1O1!
 SPECIES ALO2                        AL1O2!
 SPECIES ALO3/2                      AL1O1.5!
     """
-    test_dbf = Database.from_string(tdb_species_str, fmt='tdb')
+    test_dbf = Database.from_string(tdb_species_str, fmt="tdb")
     assert len(test_dbf.species) == 19
     species_dict = {sp.name: sp for sp in test_dbf.species}
-    assert species_dict['AL'].charge == 0
-    assert species_dict['O2'].constituents['O'] == 2
-    assert species_dict['O1'].constituents['O'] == 1
-    assert species_dict['AL1O2'].constituents['AL'] == 1
-    assert species_dict['AL1O2'].constituents['O'] == 2
-    assert species_dict['ALO3/2'].constituents['O'] == 1.5
+    assert species_dict["AL"].charge == 0
+    assert species_dict["O2"].constituents["O"] == 2
+    assert species_dict["O1"].constituents["O"] == 1
+    assert species_dict["AL1O2"].constituents["AL"] == 1
+    assert species_dict["AL1O2"].constituents["O"] == 2
+    assert species_dict["ALO3/2"].constituents["O"] == 1.5
 
 
 def test_tdb_species_with_charge_are_parsed_correctly():
@@ -382,12 +480,12 @@ SPECIES O-2                         O1/-2!
 SPECIES O2                          O2!
 SPECIES AL2                         AL2!
     """
-    test_dbf = Database.from_string(tdb_species_str, fmt='tdb')
+    test_dbf = Database.from_string(tdb_species_str, fmt="tdb")
     assert len(test_dbf.species) == 8
     species_dict = {sp.name: sp for sp in test_dbf.species}
-    assert species_dict['AL'].charge == 0
-    assert species_dict['AL+3'].charge == 3
-    assert species_dict['O-2'].charge == -2
+    assert species_dict["AL"].charge == 0
+    assert species_dict["AL+3"].charge == 3
+    assert species_dict["O-2"].charge == -2
 
 
 def test_writing_tdb_with_species_gives_same_result():
@@ -403,14 +501,14 @@ SPECIES O-2                         O1/-2!
 SPECIES O2                          O2!
 SPECIES AL2                         AL2!
     """
-    test_dbf = Database.from_string(tdb_species_str, fmt='tdb')
-    written_tdb_str = test_dbf.to_string(fmt='tdb')
-    test_dbf_reread = Database.from_string(written_tdb_str, fmt='tdb')
+    test_dbf = Database.from_string(tdb_species_str, fmt="tdb")
+    written_tdb_str = test_dbf.to_string(fmt="tdb")
+    test_dbf_reread = Database.from_string(written_tdb_str, fmt="tdb")
     assert len(test_dbf_reread.species) == 8
     species_dict = {sp.name: sp for sp in test_dbf_reread.species}
-    assert species_dict['AL'].charge == 0
-    assert species_dict['AL+3'].charge == 3
-    assert species_dict['O-2'].charge == -2
+    assert species_dict["AL"].charge == 0
+    assert species_dict["AL+3"].charge == 3
+    assert species_dict["O-2"].charge == -2
 
 
 def test_species_are_parsed_in_tdb_phases_and_parameters():
@@ -438,17 +536,54 @@ SPECIES AL2                         AL2!
   PARA L(T2SL,AL+3:O-2;0) 298.15 +2; 6000 N !
     """
     from tinydb import where
-    test_dbf = Database.from_string(tdb_str, fmt='tdb')
-    written_tdb_str = test_dbf.to_string(fmt='tdb')
-    test_dbf_reread = Database.from_string(written_tdb_str, fmt='tdb')
-    assert set(test_dbf_reread.phases.keys()) == {'TEST_PH', 'T2SL'}
-    assert test_dbf_reread.phases['TEST_PH'].constituents[0] == {Species('AL'), Species('AL2'), Species('O-2')}
-    assert len(test_dbf_reread._parameters.search(where('constituent_array') == ((Species('AL'),),))) == 1
-    assert len(test_dbf_reread._parameters.search(where('constituent_array') == ((Species('AL2'),),))) == 1
-    assert len(test_dbf_reread._parameters.search(where('constituent_array') == ((Species('O-2'),),))) == 1
 
-    assert test_dbf_reread.phases['T2SL'].constituents == ({Species('AL+3')}, {Species('O-2')})
-    assert len(test_dbf_reread._parameters.search(where('constituent_array') == ((Species('AL+3'),),(Species('O-2'),)))) == 1
+    test_dbf = Database.from_string(tdb_str, fmt="tdb")
+    written_tdb_str = test_dbf.to_string(fmt="tdb")
+    test_dbf_reread = Database.from_string(written_tdb_str, fmt="tdb")
+    assert set(test_dbf_reread.phases.keys()) == {"TEST_PH", "T2SL"}
+    assert test_dbf_reread.phases["TEST_PH"].constituents[0] == {
+        Species("AL"),
+        Species("AL2"),
+        Species("O-2"),
+    }
+    assert (
+        len(
+            test_dbf_reread._parameters.search(
+                where("constituent_array") == ((Species("AL"),),)
+            )
+        )
+        == 1
+    )
+    assert (
+        len(
+            test_dbf_reread._parameters.search(
+                where("constituent_array") == ((Species("AL2"),),)
+            )
+        )
+        == 1
+    )
+    assert (
+        len(
+            test_dbf_reread._parameters.search(
+                where("constituent_array") == ((Species("O-2"),),)
+            )
+        )
+        == 1
+    )
+
+    assert test_dbf_reread.phases["T2SL"].constituents == (
+        {Species("AL+3")},
+        {Species("O-2")},
+    )
+    assert (
+        len(
+            test_dbf_reread._parameters.search(
+                where("constituent_array") == ((Species("AL+3"),), (Species("O-2"),))
+            )
+        )
+        == 1
+    )
+
 
 def test_tdb_missing_terminator_element():
     tdb_str = """$ Note missing '!' in next line
@@ -462,7 +597,7 @@ def test_database_parsing_of_floats_with_no_values_after_decimal():
     """Floats with no values after the decimal should be properly parsed (gh-143)"""
     tdb_string = """$ The element has no values after the decimal in '5004.'
         ELEMENT CU   FCC_A1           63.546           5004.             33.15      !"""
-    dbf = Database.from_string(tdb_string, fmt='tdb')
+    dbf = Database.from_string(tdb_string, fmt="tdb")
     assert "CU" in dbf.elements
 
 
@@ -470,7 +605,7 @@ def test_database_parsing_of_floats_with_multiple_leading_zeros():
     """Floats with multiple leading zeros should be properly parsed (gh-143)"""
     tdb_string = """$ The element has multiple leading zeros in '00.546'
         ELEMENT CU   FCC_A1           00.546           5004.0             33.15      !"""
-    dbf = Database.from_string(tdb_string, fmt='tdb')
+    dbf = Database.from_string(tdb_string, fmt="tdb")
     assert "CU" in dbf.elements
 
 
@@ -560,7 +695,7 @@ def test_comma_templims():
            -1.230524E+28*T**(-9);
           2900.00  N !
         """
-    dbf = Database.from_string(tdb_string, fmt='tdb')
+    dbf = Database.from_string(tdb_string, fmt="tdb")
     assert "AL" in dbf.elements
 
 
@@ -594,38 +729,47 @@ def test_database_parameter_with_species_that_is_not_a_stoichiometric_formula():
 
      """
 
-    dbf = Database.from_string(tdb_string, fmt='tdb')
+    dbf = Database.from_string(tdb_string, fmt="tdb")
 
     species_dict = {sp.name: sp for sp in dbf.species}
     species_names = list(species_dict.keys())
 
     # check that the species are found
-    assert 'SILICA' in species_names
-    assert 'NASB_6OH' in species_names
-    assert 'ALCL2OH.3WATER' in species_names
-    assert 'SB-3' in species_names
+    assert "SILICA" in species_names
+    assert "NASB_6OH" in species_names
+    assert "ALCL2OH.3WATER" in species_names
+    assert "SB-3" in species_names
 
     import tinydb
-    silica = dbf._parameters.search(tinydb.where('constituent_array') == ((species_dict['SILICA'],),))
+
+    silica = dbf._parameters.search(
+        tinydb.where("constituent_array") == ((species_dict["SILICA"],),)
+    )
     assert len(silica) == 1
-    assert silica[0]['parameter'].args[0] == float(10)
+    assert silica[0]["parameter"].args[0] == float(10)
 
-    nasb_6oh = dbf._parameters.search(tinydb.where('constituent_array') == ((species_dict['NASB_6OH'],),))
+    nasb_6oh = dbf._parameters.search(
+        tinydb.where("constituent_array") == ((species_dict["NASB_6OH"],),)
+    )
     assert len(nasb_6oh) == 1
-    assert nasb_6oh[0]['parameter'].args[0] == float(100)
+    assert nasb_6oh[0]["parameter"].args[0] == float(100)
 
-    alcl2oh_3water = dbf._parameters.search(tinydb.where('constituent_array') == ((species_dict['ALCL2OH.3WATER'],),))
+    alcl2oh_3water = dbf._parameters.search(
+        tinydb.where("constituent_array") == ((species_dict["ALCL2OH.3WATER"],),)
+    )
     assert len(alcl2oh_3water) == 1
-    assert alcl2oh_3water[0]['parameter'].args[0] == float(1000)
+    assert alcl2oh_3water[0]["parameter"].args[0] == float(1000)
 
-    sbminus3 = dbf._parameters.search(tinydb.where('constituent_array') == ((species_dict['SB-3'],),))
+    sbminus3 = dbf._parameters.search(
+        tinydb.where("constituent_array") == ((species_dict["SB-3"],),)
+    )
     assert len(sbminus3) == 1
-    assert sbminus3[0]['parameter'].args[0] == float(10000)
+    assert sbminus3[0]["parameter"].args[0] == float(10000)
 
 
 def test_database_sympy_namespace_clash():
     """Symbols that clash with sympy special objects are replaced (gh-233)"""
-    Database.from_string("""FUNCTION TEST 0.01 T*LN(CC)+FF; 6000 N TW !""", fmt='tdb')
+    Database.from_string("""FUNCTION TEST 0.01 T*LN(CC)+FF; 6000 N TW !""", fmt="tdb")
 
 
 def test_tdb_order_disorder_model_hints_applied_correctly():
@@ -660,14 +804,17 @@ def test_tdb_order_disorder_model_hints_applied_correctly():
      TYPE_DEFINITION C GES A_P_D BCC_B2 DIS_PART BCC_A2 !
     """
     import itertools
-    for (k1, v1), (k2, v2), (k3, v3) in itertools.permutations([('PHASE_A2 ', PHASE_A2), ('PHASE_B2 ', PHASE_B2), ('TYPE_DEF ', TYPE_DEF_ORD)]):
+
+    for (k1, v1), (k2, v2), (k3, v3) in itertools.permutations(
+        [("PHASE_A2 ", PHASE_A2), ("PHASE_B2 ", PHASE_B2), ("TYPE_DEF ", TYPE_DEF_ORD)]
+    ):
         print(k1 + k2 + k3)
         dbf = Database(TEMPLATE_TDB + v1 + v2 + v3)
-        assert 'disordered_phase' in dbf.phases['BCC_A2'].model_hints
-        assert 'ordered_phase' in dbf.phases['BCC_A2'].model_hints
-        assert 'disordered_phase' in dbf.phases['BCC_B2'].model_hints
-        assert 'ordered_phase' in dbf.phases['BCC_B2'].model_hints
-        roundtrip_dbf = Database.from_string(dbf.to_string(fmt='tdb'), fmt='tdb')
+        assert "disordered_phase" in dbf.phases["BCC_A2"].model_hints
+        assert "ordered_phase" in dbf.phases["BCC_A2"].model_hints
+        assert "disordered_phase" in dbf.phases["BCC_B2"].model_hints
+        assert "ordered_phase" in dbf.phases["BCC_B2"].model_hints
+        roundtrip_dbf = Database.from_string(dbf.to_string(fmt="tdb"), fmt="tdb")
         assert roundtrip_dbf == dbf
 
 
@@ -724,10 +871,10 @@ def test_database_applies_late_type_def():
 
     """)
 
-    assert 'ihj_magnetic_afm_factor' in dbf.phases['BCC_A2'].model_hints
-    assert dbf.phases['BCC_A2'].model_hints['ihj_magnetic_afm_factor'] == -1.0
-    assert 'ihj_magnetic_structure_factor' in dbf.phases['BCC_A2'].model_hints
-    assert dbf.phases['BCC_A2'].model_hints['ihj_magnetic_structure_factor'] == 0.4
+    assert "ihj_magnetic_afm_factor" in dbf.phases["BCC_A2"].model_hints
+    assert dbf.phases["BCC_A2"].model_hints["ihj_magnetic_afm_factor"] == -1.0
+    assert "ihj_magnetic_structure_factor" in dbf.phases["BCC_A2"].model_hints
+    assert dbf.phases["BCC_A2"].model_hints["ihj_magnetic_structure_factor"] == 0.4
 
 
 def test_tdb_parser_raises_unterminated_parameters():
@@ -744,6 +891,7 @@ def test_tdb_parser_raises_unterminated_parameters():
     """
     with pytest.raises(ParseException):
         Database(UNTERMINATED_PARAM_STR)
+
 
 def test_tdb_parser_correct_lineno():
     """Line number is correctly reported during a parser exception."""
@@ -773,12 +921,13 @@ def test_tdb_parser_correct_lineno():
     assert excinfo.value.lineno == 3
     assert excinfo.value.column == 45
 
+
 @select_database("alfe.tdb")
 def test_load_database_when_given_in_lowercase(load_database):
     "Test loading a database coerced to lowercase loads correctly."
-    ALFE_TDB = load_database().to_string(fmt='tdb')
-    dbf = Database.from_string(ALFE_TDB, fmt='tdb')
-    dbf_lower = Database.from_string(ALFE_TDB.lower(), fmt='tdb')
+    ALFE_TDB = load_database().to_string(fmt="tdb")
+    dbf = Database.from_string(ALFE_TDB, fmt="tdb")
+    dbf_lower = Database.from_string(ALFE_TDB.lower(), fmt="tdb")
 
     assert dbf == dbf_lower
 
@@ -789,13 +938,17 @@ def test_reflow_text_raises_on_unbreakable_lines():
     with pytest.raises(ValueError):
         reflow_text(very_long_line, 80)
 
+
 def test_reflow_text_for_line_breaks():
     """Should accept line breaks only at `linebreak_chars` or before number addition/subtractions since they are not preceded by 'E' or '(', e.g.: '6.14599E-07', 'T**(-3)', and 'LOG(-3)'."""
     linebreak_chars = [" ", "$"]
     test_string = "FUNCTION SYMBOL 000 -1.111111*2.2222222E-02-LOG(-3.333333)*3.333333*T**(-3.33333)+4.4444444E-04+T**(-5.55555)*LOG(-5.55555)*5.555555; 000 N !"
     lines = reflow_text(test_string, 80).replace("  ", "").split("\n")
     for i in range(1, len(lines)):
-        assert lines[i][0] in linebreak_chars or (lines[i][0] in ['+', '-'] and lines[i-1][-1] not in ["E", "("])
+        assert lines[i][0] in linebreak_chars or (
+            lines[i][0] in ["+", "-"] and lines[i - 1][-1] not in ["E", "("]
+        )
+
 
 # TODO: when the new database-as-files test fixture is merged, replace with unary 50 proper.
 def test_long_constituent_line_writes_correctly():
@@ -890,11 +1043,14 @@ def test_long_constituent_line_writes_correctly():
     """
     dbf = Database(TDB)
     assert len(dbf.elements) == 80
-    assert len(dbf.phases['LIQUID'].constituents[0]) == 78  # No VA or /-
-    reloaded_dbf = Database(dbf.to_string(fmt='tdb'))
+    assert len(dbf.phases["LIQUID"].constituents[0]) == 78  # No VA or /-
+    reloaded_dbf = Database(dbf.to_string(fmt="tdb"))
     dbf == reloaded_dbf
     assert len(dbf.elements) == len(reloaded_dbf.elements)
-    assert len(dbf.phases['LIQUID'].constituents[0]) == len(reloaded_dbf.phases['LIQUID'].constituents[0])
+    assert len(dbf.phases["LIQUID"].constituents[0]) == len(
+        reloaded_dbf.phases["LIQUID"].constituents[0]
+    )
+
 
 def test_database_passes_with_diffusion_commands():
     "DIFFUSION and ZEROVOLUME_SPECIES commands do not raise errors while parsing (doesn't test implementation)."
@@ -906,29 +1062,39 @@ def test_database_passes_with_diffusion_commands():
      DIFFUSION MAGNETIC BCC_A2 ALPHA=0.3 !
     """
 
-    dbf = Database.from_string(tdb_string, fmt='tdb')
+    dbf = Database.from_string(tdb_string, fmt="tdb")
+
 
 def test_tc_printer_no_division_symbols():
     "TCPrinter does not produce division symbols in string output of symbolic expressions."
-    test_expr = Piecewise((S('VV0000/T + T*VV0004 + T**2*VV0001 + T**3*VV0002 + T*LOG(T)*VV0003'), v.T>0))
+    test_expr = Piecewise(
+        (
+            S("VV0000/T + T*VV0004 + T**2*VV0001 + T**3*VV0002 + T*LOG(T)*VV0003"),
+            v.T > 0,
+        )
+    )
     result = TCPrinter().doprint(test_expr)
-    assert '/' not in result
+    assert "/" not in result
+
 
 def test_tc_printer_exp():
     "TCPrinter prints the exponential function when the argument is not an integer."
-    test_expr = S('exp(-300T**(-1.0))')
+    test_expr = S("exp(-300T**(-1.0))")
     result = TCPrinter()._stringify_expr(test_expr)
-    assert result == 'exp(-300*T**(-1))'
+    assert result == "exp(-300*T**(-1))"
+
 
 def test_tc_printer_bad_kwarg():
     "TCPrinter will raise if passed bad keyword arguments."
     with pytest.raises(ValueError):
-        TCPrinter(if_incompatible='invalid_keyword')
+        TCPrinter(if_incompatible="invalid_keyword")
+
 
 def test_tc_printer_raise_noninteger_exponent():
     "TCPrinter will raise for non-integer exponents in compatibility mode."
     with pytest.raises(DatabaseExportError):
-        TCPrinter(if_incompatible='raise')._stringify_expr(S('T**0.42'))
+        TCPrinter(if_incompatible="raise")._stringify_expr(S("T**0.42"))
+
 
 @pytest.mark.filterwarnings("ignore:Ignoring that non-integer exponents*:UserWarning")
 def test_tc_printer_nested_mul_add():
@@ -939,30 +1105,32 @@ def test_tc_printer_nested_mul_add():
         A*(B*C) should be A*B*C and
         A*B**C should be A*B**(C) instead of A*(B**(C))
     """
-    #Test that parenthesis are retained for Mul(A,Add(B,C))
-    test_expr = S('A*(B+C)')
+    # Test that parenthesis are retained for Mul(A,Add(B,C))
+    test_expr = S("A*(B+C)")
     result = TCPrinter()._stringify_expr(test_expr)
-    #Test for B+C or C+B since this seems to differ across different OS
-    assert result == 'A*(B+C)' or result == 'A*(C+B)'
+    # Test for B+C or C+B since this seems to differ across different OS
+    assert result == "A*(B+C)" or result == "A*(C+B)"
 
-    #Test for Mul(Add(A,B),Add(C,D))
-    test_expr = S('(A+B)*(C+D)')
+    # Test for Mul(Add(A,B),Add(C,D))
+    test_expr = S("(A+B)*(C+D)")
     result = TCPrinter()._stringify_expr(test_expr)
-    assert ('(A+B)' in result or '(B+A)' in result) and ('(C+D)' in result or '(D+C)' in result)
+    assert ("(A+B)" in result or "(B+A)" in result) and (
+        "(C+D)" in result or "(D+C)" in result
+    )
 
-    #Test that the parenthesis are ignored for Mul(A,Mul(B,C))
-    test_expr = S('A*(B*C)')
+    # Test that the parenthesis are ignored for Mul(A,Mul(B,C))
+    test_expr = S("A*(B*C)")
     result = TCPrinter()._stringify_expr(test_expr)
-    #Since the ordering seem to sometimes differ across different OS
+    # Since the ordering seem to sometimes differ across different OS
     #    this would result in 6 different combinations to test
     #    so we'll just test that the parenthesis are removed
-    assert '(' not in result and ')' not in result
+    assert "(" not in result and ")" not in result
 
-    #Test that parenthesis are not added for Mul(A,Pow(B,C))
+    # Test that parenthesis are not added for Mul(A,Pow(B,C))
     #    We want to avoid cases where something like A*T**(B) becomes A*(T**(B))
-    test_expr = S('A*B**(C)')
+    test_expr = S("A*B**(C)")
     result = TCPrinter()._stringify_expr(test_expr)
-    assert result == 'A*B**(C)'
+    assert result == "A*B**(C)"
 
 
 @select_database("Al-Fe_sundman2009.tdb")
@@ -980,6 +1148,7 @@ def test_database_symmetry_options_are_generated(load_database):
     # read/write is a no-op
     read_dbf = Database.from_string(dbf.to_string(fmt="tdb"), fmt="tdb")
     assert len(read_dbf._parameters) == 375
+
 
 def test_database_ignore_if_then_type_definition():
     """Lines with Type_DEFINITION ... IF ... THEN ... will be ignored"""
@@ -1020,5 +1189,15 @@ def test_database_ignore_if_then_type_definition():
     TYPE_DEFINITION W IF (CR) THEN
                     GES A_P_D BCC_B2 MAJ 1 CR:CR:VA !
     """
-    with pytest.warns(UserWarning, match='Type definitions using IF/THEN logic is not supported'):
-        Database.from_string(tdb_string, fmt='tdb')
+    with pytest.warns(
+        UserWarning, match="Type definitions using IF/THEN logic is not supported"
+    ):
+        Database.from_string(tdb_string, fmt="tdb")
+
+
+def test_reflow_text_long_string_with_variables():
+    # Test allowing line breaks at 'T' or 'P' variables if not preceeded by 'E' or '('
+    test_text_T = "PARAMETER G(CEMENTITE_D011,FE:C;0) 1 1.0*GHSERCC+T**(-1)*VV0001+T*VV0005 +T*LOG(T)*VV0004+VV0006+T**(2)*VV0002+T**(3)*VV0003+3.0*GHSERFE; 10000 N !"
+    test_text_P = "PARAMETER G(CEMENTITE_D011,FE:C;0) 1 1.0*GHSERCC+P**(-1)*VV0001+P*VV0005 +P*LOG(P)*VV0004+VV0006+P**(2)*VV0002+P**(3)*VV0003+3.0*GHSERFE; 10000 N !"
+    reflow_text(test_text_T, 80)
+    reflow_text(test_text_P, 80)
